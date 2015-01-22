@@ -81,6 +81,7 @@ def take_item_command_soln(room_name, command):
 
 def move_to_room_soln(room_name):
     global g_current_room_name
+    global g_visited_room_names
     global g_score
 
     # Update the global current room name.
@@ -90,6 +91,9 @@ def move_to_room_soln(room_name):
     # add the room's score to the player's score, and return a msg
     # about how many points they've earned.
     if (g_visited_room_names.count(room_name) == 0):
+
+        # Remember that the user has now been here
+        g_visited_room_names.append(room_name)
 
         # Get the new room by name
         room = g_rooms[room_name]
@@ -189,6 +193,7 @@ def notebook_command(room_name, command):
 
 def move_to_room(room_name):
     global g_current_room_name
+    global g_visited_room_names
     global g_score
 
     # TODO set the current_room to be room.
@@ -292,7 +297,8 @@ on them, but Mr. Schneider has obviously written in the name "Peggy???" in red i
 
 print_intro()
 
-print move_to_room("hallway")
+# Skip printing the initial score message, since it's zero
+move_to_room("hallway")
 
 while g_keep_going and (not game_complete()):
     print_room_description(g_current_room_name)
@@ -327,7 +333,9 @@ while g_keep_going and (not game_complete()):
     next_room = check_move_command(g_current_room_name, command)
     if next_room != None:
         # Go to the new room
-        print move_to_room(next_room)
+        score_message = move_to_room(next_room)
+        if (score_message):
+            print score_message
         continue
 
     # See if the command is an action on an item the user
