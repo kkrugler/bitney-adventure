@@ -186,6 +186,28 @@ def player_has_item(item_name):
     # Return true if the user has the item, otherwise false.
     return g_player_items.count(item_name) > 0
 
+# This is a debugging function that ensures all rooms are reachable, and all
+# doors lead to a named room.
+def check_room_graph():
+    current_room = g_rooms.keys().pop(0)
+    visited_rooms = set()
+    check_room(visited_rooms, current_room)
+
+    # Now verify that we visited every room.
+    for room in g_rooms.keys():
+        if not room in visited_rooms:
+            print "We never visited %s" % room
+        else:
+            print "We visited %s" % room
+
+def check_room(visited_rooms, room):
+    if not room in visited_rooms:
+        visited_rooms.add(room)
+        doors = g_rooms[room]["doors"]
+        for door in doors.keys():
+            next_room = doors[door]
+            print "%s from %s goes to %s" % (door, room, next_room)
+            check_room(visited_rooms, next_room)
 
 # This is a list of names of items that player has taken. It starts off
 # as empty. When you take an item, it gets added to this list, and when
@@ -288,6 +310,10 @@ while not game_complete():
 
     if command == "look":
         print_room_description(g_current_room_name)
+        continue
+
+    if command == "check":
+        check_room_graph()
         continue
 
     if command.startswith("take "):
