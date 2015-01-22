@@ -7,6 +7,7 @@
 # This file can be pasted as is into the solution to the exercise.
 
 def print_room_description_soln(room_name):
+    global g_rooms
 
     # Retrieve the current room by name
     room = g_rooms[room_name]
@@ -14,26 +15,20 @@ def print_room_description_soln(room_name):
     # Print the room's description
     print room['description']
 
-def print_room_items_soln(room_name):
-
-    # Get the current room by name
-    room = g_rooms[room_name]
-
     # Get the room's item list
-    item_names = room['item_names']
+    item_names = room['items']
 
     # Print a comma-separated list of the room's items, if any
-    # otherwise print "the room is empty"
+    # otherwise print an empty string.
     if (item_names):
         items_text = "the room contains the following items: "
         for item_name in item_names:
             items_text += (item_name + ", ")
         items_text = items_text[:-2] # remove that last comma & space
-    else:
-        items_text = "the room is empty"
-    print items_text
+        print items_text
 
 def check_move_command_soln(room_name, command):
+    global g_rooms
 
     # Get the current room by name
     room = g_rooms[room_name]
@@ -44,15 +39,16 @@ def check_move_command_soln(room_name, command):
     # If so, return the name of the new room, otherwise return None.
     if doors.has_key(command):
         return doors[command]
-    return None
+    else:
+        return None
 
 def take_item_command_soln(room_name, command):
     global g_rooms
-    global g_inventory
+    global g_player_items
 
     # command should be "take xxx", where xxx is the name of an
     # item in the room.
-    item_name = command[len('take'):].strip()
+    item_name = command[len('take '):].strip()
 
     # If it's just "take" then return an appropriate
     # error message.
@@ -63,7 +59,7 @@ def take_item_command_soln(room_name, command):
     room = g_rooms[room_name]
 
     # Get the room's item list
-    room_item_names = room['item_names']
+    room_item_names = room['items']
 
     # If xxx isn't the name of an item in the room, then
     # return a different error message.
@@ -77,6 +73,70 @@ def take_item_command_soln(room_name, command):
     g_inventory.append(item_name)
     return "You now have the %s" % item_name
 
+def drop_item_command_soln(room_name, command):
+    global g_rooms
+    global g_player_items
+
+    # command should be "drop xxx", where xxx is the name of an
+    # item in the player's inventory.
+    item_name = command[len('drop '):].strip()
+
+    # If it's just "drop" then return an appropriate
+    # error message.
+    if (not item_name):
+        return "You didn't specify what to drop"
+
+    # Get the current room by name
+    room = g_rooms[room_name]
+
+    # Get the room's item list
+    room_item_names = room['items']
+
+    # If xxx isn't the name of an item in the player's inventory, then
+    # return a different error message.
+    if g_inventory.count(item_name) == 0:
+        return "You don't have the %s in your possession" % item_name
+
+    # Otherwise, remove the item from the player's inventory, and add it
+    # to the room's list of items, and return a string that says "you no longer have the xxx"
+    g_inventory.remove(item_name)
+    room_item_names.append(item_name)
+    return "You no longer have the %s" % item_name
+
+def examine_item_command_soln(room_name, command):
+    global g_player_items
+    global g_game_items
+
+    # command should be "examine xxx", where xxx is the name of an
+    # item in the player's inventory.
+    item_name = command[len('examine'):].strip()
+
+    # If it's just "examine" then return an appropriate
+    # error message.
+    if (not item_name):
+        return "You didn't specify what to examine"
+
+    if g_inventory.count(item_name) == 0:
+        return "You don't have a " + item_name + " in your possession"
+
+    item = g_items[item_name]
+    return item['description']
+
+def check_item_command_soln(room_name, command):
+    global g_player_items
+
+    # see if we have a function for handling item-specific commands
+    # for any of the items the user has taken. Call them one at a time,
+    # and if any of them return something other than None we want to
+    # return that result.
+    for item_name in g_inventory:
+        item = g_game_items[item_name]
+        handler = item['action']
+        if handler != None:
+            result = handler(room_name, command)
+            if result != None:
+                return result
+
     return None
 
 def move_to_room_soln(room_name):
@@ -88,12 +148,15 @@ def move_to_room_soln(room_name):
     g_current_room_name = room_name
 
     # If this is the first time in this room (check visited_rooms) then
-    # add the room's score to the player's score, and return a msg
+    # add the room's score to the player's score, and print a msg
     # about how many points they've earned.
     if (g_visited_room_names.count(room_name) == 0):
 
         # Remember that the user has now been here
         g_visited_room_names.append(room_name)
+
+        # Print the room description
+        print_room_description_soln(room_name)
 
         # Get the new room by name
         room = g_rooms[room_name]
@@ -103,12 +166,10 @@ def move_to_room_soln(room_name):
         g_score += room_value
 
         # Congratulate the player on his/her progress
-        if (room_value):
-            return "You just earned %s points for a total of %s" % (room_value, g_score)
-        else:
-            return "This room has no extra value, so your score remains %s" % g_score
-
-    return None
+        if (room_value > 0):
+            print "You just earned %s points!" % room_value
+    else:
+        print "You are in the %s" % room_name
 
 
 # End of solution code
@@ -134,11 +195,6 @@ def print_room_description(room_name):
     print_room_description_soln(room_name)
     # print "room description"
 
-def print_room_items(room_name):
-    # TODO print a list of items in the room, if there are any
-    print_room_items_soln(room_name)
-    # print "room items"
-
 def print_inventory():
     # TODO print a list of the item names that the user has
     print "inventory"
@@ -147,11 +203,14 @@ def check_move_command(room_name, command):
     # TODO see if this is the name of a door in this room.
     # If so, return the name of the new room, otherwise return None
     return check_move_command_soln(room_name, command)
-    # return None
+    return None
 
 def check_item_command(room_name, command):
     # TODO see if we have a function for handling item-specific commands
-    # If so, call it, and return its result string (which can be None)
+    # for any of the items the user has taken. Call them one at a time,
+    # and if any of them return something other than None we want to
+    # return that result.
+    return check_item_command_soln(room_name, command)
     return None
 
 def check_general_command(room_name, command):
@@ -162,7 +221,7 @@ def check_general_command(room_name, command):
 
 def has_item(item):
     # TODO return true if the user has the item, otherwise false.
-    return g_inventory.count(item) > 0
+    return g_player_items.count(item) > 0
 
 def key_command(room_name, command):
     # TODO see if this is a specific command for the key.
@@ -178,7 +237,7 @@ def key_command(room_name, command):
         if room_name == "hallway":
             # TODO set the computerlab room's "locked" attribute to
             # False.
-            return "I just unlocked the door"
+            return "You just unlocked the door"
         else:
             return "I don't see any lock around here"
     else:
@@ -198,14 +257,13 @@ def move_to_room(room_name):
 
     # TODO set the current_room to be room.
     # If this is the first time in this room (check visited_rooms) then
-    # add the room's score to the player's score, and return a msg
-    # about how many points they've earned.
-    return move_to_room_soln(room_name)
-    #g_current_room_name = room_name
-    #return None
+    # add the room's score to the player's score, and let them know they
+    # just earned some additional points. Also print out the room's
+    # description if it's the first time, otherwise just the room name.
+    move_to_room_soln(room_name)
 
 def take_item_command(room_name, command):
-    global g_inventory # not rebound, but contents changed
+    global g_player_items # not rebound, but contents changed
     global g_rooms # not rebound, but contents changed
 
     # TODO command should be "take xxx", where xxx is the name of an
@@ -213,11 +271,28 @@ def take_item_command(room_name, command):
     # error message. If xxx isn't the name of an item in the room, then
     # return a different error message. Otherwise move the item from
     # the room's list of items, and put it into the player's inventory,
-    # and return a string that says "you now have the xxx"
+    # and return a string that says "you now have the xxx". Though
+    # you only want to do this if the item is takeable!
     return take_item_command_soln(room_name, command)
-    #return None
+    return None
+
+def examine_item_command(room_name, command):
+    global g_player_items
+    global g_game_items
+
+    # TODO command should be "examine xxx", where xxx is the name of
+    # an item in the player's inventory. If it's just "examine" then
+    # return an appropriate error message. If xxx isn't in the player's
+    # inventory, return a different error message. Otherwise return
+    # the item's description.
+
+    return examine_item_command_soln(room_name, command)
+    return None
 
 def drop_item_command(room_name, command):
+    global g_player_items # not rebound, but contents changed
+    global g_rooms # not rebound, but contents changed
+
     # TODO command should be "drop xxx", where xxx is the name of an
     # item in the player's inventory. If it's just "drop" then return
     # an appropriate error message. If xxx isn't the name of an item
@@ -225,11 +300,13 @@ def drop_item_command(room_name, command):
     # Otherwise move the item from the player's inventory to the room's
     # list of items, and return a string that says "you no longer have
     # the xxx"
+    return drop_item_command_soln(room_name, command)
     return None
 
-# This is a list of items that player has picked up. It starts off
-# as empty
-g_inventory = []
+# This is a list of names of items that player has taken. It starts off
+# as empty. When you take an item, it gets added to this list, and when
+# you drop an item, it gets removed from this list.
+g_player_items = []
 
 # This is the name of the current room that the player is in.
 g_current_room_name = None
@@ -242,13 +319,9 @@ g_visited_room_names = []
 # (but only the first time!)
 g_score = 0
 
-# This is a boolean variable. When it's set to False, the game should
-# exit the main loop below.
-g_keep_going = True
-
 # rooms is a dictionary, where the key is the room name, and the value is a "room"
 # Each room is also a dictionary, where the key is one of several possible values
-#   description -> string that describes the room
+#   description -> string that describes the room. This should include all doors.
 #   items -> list of item names for items found in that room
 #   value -> points for visiting the room
 #   doors -> dictionary that maps from a door name ("north", "up", etc) to a room name
@@ -257,16 +330,21 @@ g_keep_going = True
 # a "locked": True attribute, and you have to unlock it first before you can go through
 # that door. Use your imagination.
 
-g_rooms = {"computerlab":
-             {"description": "The computer lab is filled with glowing screens and old chairs",
-              "item_names": ["notebook"],
+g_rooms = {"computer lab":
+             {"description": "The computer lab is filled with glowing screens and old chairs. There is a door to the south",
+              "items": ["notebook"],
               "value": 5,
-              "doors": {"exit": "hallway"}},
+              "doors": {"south": "hallway"}},
          "hallway":
-             {"description": "The hallway is filled with colorful murals",
-              "item_names": [],
+             {"description": "The hallway is filled with colorful murals. There are doors to the north and east",
+              "items": ["key"],
               "value": 0,
-              "doors": {"north": "computerlab", "east": "lobby"}}
+              "doors": {"north": "computer lab", "east": "lobby"}},
+         "lobby":
+             {"description": "The lobby is a place where people go to chill. There is a door to the west",
+              "items": [],
+              "value": 2,
+              "doors": {"west": "hallway"}},
 }
 
 # items is a dictionary, where the key is the item name, and the value is an "item"
@@ -274,21 +352,23 @@ g_rooms = {"computerlab":
 #   description -> string that describes the item
 #   action -> function that checks for item-specific actions
 #   takeable -> boolean for whether the item can be taken or not.
-#   room -> room name where item exists (so its starting location). This is set to
-#           None when the item has been taken by the person.
+#
+# You can also have other item-specific attributed, e.g. a bottle of water could have
+# an "empty": False attribute, and this changes to True after you've had a drink.
+# Use your imagination.
 
-g_items = {"notebook":
-             {"description": '''notebook containing all kinds of complex diagrams, equations, assignments
-(many with very low grades), etc. in a completely random order. None of the pages have any students names
-on them, but Mr. Schneider has obviously written in the name "Peggy???" in red ink on several of the graded assignments.''',
+g_game_items = {"notebook":
+             {"description":
+'''notebook containing all kinds of complex diagrams, equations, assignments
+(many with very low grades), etc. in a completely random order. None of the
+pages have any students names on them, but Mr. Schneider has obviously written
+in the name "Peggy???" in red ink on several of the graded assignments.''',
               "action": notebook_command,
-              "takeable": True,
-              "room": "computerlab"},
+              "takeable": True},
          "key":
              {"description": "small, nondescript key",
               "action": key_command,
-              "takeable": True,
-              "room": "hallway"}
+              "takeable": True}
 }
 
 # ============================================================
@@ -300,18 +380,19 @@ print_intro()
 # Skip printing the initial score message, since it's zero
 move_to_room("hallway")
 
-while g_keep_going and (not game_complete()):
-    print_room_description(g_current_room_name)
-    print_room_items(g_current_room_name)
+while not game_complete():
+    # Print an empty line
+    print("")
 
     # Get the user's command
     command = raw_input("> ")
 
     # See if the command is one of our special commands.
     if command == "bye":
+        # Print a goodbye message, and then break out of the loop, thus
+        # ending the game.
         print_goodbye(g_score)
-        g_keep_going = False
-        continue
+        break
 
     if command == "help":
         print_help()
@@ -321,12 +402,20 @@ while g_keep_going and (not game_complete()):
         print_inventory()
         continue
 
-    if command.startswith("take"):
+    if command == "look":
+        print_room_description(g_current_room_name)
+        continue
+
+    if command.startswith("take "):
         print take_item_command(g_current_room_name, command)
         continue
 
-    if command.startswith("drop"):
+    if command.startswith("drop "):
         print drop_item_command(g_current_room_name, command)
+        continue
+
+    if command.startswith("examine "):
+        print examine_item_command(g_current_room_name, command)
         continue
 
     # See if the command is the name of a door
@@ -334,7 +423,7 @@ while g_keep_going and (not game_complete()):
     if next_room != None:
         # Go to the new room
         score_message = move_to_room(next_room)
-        if (score_message):
+        if score_message != None:
             print score_message
         continue
 
@@ -353,5 +442,5 @@ while g_keep_going and (not game_complete()):
         continue;
 
     # No idea what they want to do
-    print("I'm not sure what you want me to do")
+    print("I don't understand that")
 
