@@ -209,6 +209,29 @@ def check_room(visited_rooms, room):
             print "%s from %s goes to %s" % (door, room, next_room)
             check_room(visited_rooms, next_room)
 
+# This is a debugging function that ensures all items are located in some
+# room, but only one room.
+def check_items():
+    global g_game_items
+    global g_rooms
+
+    missing_items = set(g_game_items.keys())
+    found_items = set()
+
+    for room in g_rooms.keys():
+        room_items = g_rooms[room]["items"]
+        for room_item in room_items:
+            if room_item in found_items:
+                print "%s is in two different rooms" % room_item
+            else:
+                print "We found %s in %s" % (room_item, room)
+                found_items.add(room_item)
+
+            missing_items.remove(room_item)
+
+    for missing_item in missing_items:
+        print "%s is not in any room" % missing_item
+
 # This is a list of names of items that player has taken. It starts off
 # as empty. When you take an item, it gets added to this list, and when
 # you drop an item, it gets removed from this list.
@@ -314,6 +337,7 @@ while not game_complete():
 
     if command == "check":
         check_room_graph()
+        check_items()
         continue
 
     if command.startswith("take "):
