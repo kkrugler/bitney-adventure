@@ -47,9 +47,9 @@ def check_move_command(room_name, command):
     global g_rooms
 
     # TODO see if this is the name of a door in this room.
-    # If so, return the name of the new room, otherwise return None
+    # If so, call move_to_room() and return True.  Otherwise return False.
 
-    return None
+    return False
 
 def check_general_command(room_name, command):
     # Level - 2
@@ -79,14 +79,13 @@ def move_to_room(room_name):
     # just earned some additional points. Also print out the room's
     # description if it's the first time, otherwise just the room name.
 
-
 def take_item_command(room_name, command):
     # Level - 5
 
     global g_player_items
     global g_rooms
 
-    # First use the handy-dandy get_item_name utility routine to extract
+    # First use the handy-dandy get_item_name utility function to extract
     # the item name from the command.
     item_name = get_item_name("take", command)
 
@@ -105,14 +104,14 @@ def examine_item_command(room_name, command):
     global g_player_items
     global g_game_items
 
-    # First use the handy-dandy get_item_name utility routine to extract
+    # First use the handy-dandy get_item_name utility function to extract
     # the item name from the command.
-    item_name = get_item_name("take", command)
+    item_name = get_item_name("examine", command)
 
     # TODO if item_name isn't in the player's
     # list of items, print an error message. Otherwise print
     # the item's description. You can use the player_has_item(item_name)
-    # function to help with this.
+    # utility function to help with this.
 
     print "I don't know how to examine " + item_name
 
@@ -122,13 +121,14 @@ def drop_item_command(room_name, command):
     global g_player_items
     global g_rooms
 
-    # First use the handy-dandy get_item_name utility routine to extract
+    # First use the handy-dandy get_item_name utility function to extract
     # the item name from the command.
-    item_name = get_item_name("take", command)
+    item_name = get_item_name("drop", command)
 
     # TODO command should be "drop xxx", where xxx is the name of an
     # item in the player's list of items. If xxx isn't the name of an item
-    # in the player's list of items, then print a an error message.
+    # in the player's list of items (call the handy-dandy player_has_item
+    # utility to find out), then print a an error message.
     # Otherwise move the item from the player's list of items to the room's
     # list of items, and print a string that says "you no longer have
     # the xxx"
@@ -353,19 +353,17 @@ while not game_complete():
         continue
 
     # See if the command is the name of a door
-    next_room = check_move_command(g_current_room_name, command)
-    if next_room != None:
-        # Go to the new room
-        move_to_room(next_room)
+    if check_move_command(g_current_room_name, command):
         continue
 
     # See if the command is an action on an item the user
-    # has, in the appropriate room
+    # has, in the appropriate room.  If so, take that action
+    # on that item.
     if check_item_command(g_current_room_name, command):
         continue
 
     # See if the command is something we want to respond to
-    # with special text
+    # with special text.
     if check_general_command(g_current_room_name, command):
         continue
 
