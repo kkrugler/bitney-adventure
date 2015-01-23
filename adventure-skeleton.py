@@ -56,9 +56,7 @@ def check_general_command(room_name, command):
 
     # TODO see if the command is one that we want to respond to, without
     # doing anything. E.g. if they're swearing at us, tell them to keep
-    # it clean. If we don't have any match, return None. This should handle
-    # all of the cases for an action without an item name, e.g. the user
-    # enters "take" without saying what they want to take.
+    # it clean. If we don't have any match, return False.
 
     if command.startswith("hit "):
         print "There's no violence allowed at Bitney!"
@@ -340,15 +338,15 @@ while not game_complete():
         check_items()
         continue
 
-    if command.startswith("take "):
+    if command.startswith("take"):
         take_item_command(g_current_room_name, command)
         continue
 
-    if command.startswith("drop "):
+    if command.startswith("drop"):
         drop_item_command(g_current_room_name, command)
         continue
 
-    if command.startswith("examine "):
+    if command.startswith("examine"):
         examine_item_command(g_current_room_name, command)
         continue
 
