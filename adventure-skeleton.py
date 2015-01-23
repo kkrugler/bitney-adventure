@@ -187,6 +187,8 @@ def player_has_item(item_name):
 # This is a debugging function that ensures all rooms are reachable, and all
 # doors lead to a named room.
 def check_room_graph():
+    global g_rooms
+
     current_room = g_rooms.keys().pop(0)
     visited_rooms = set()
     check_room(visited_rooms, current_room)
