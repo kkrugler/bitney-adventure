@@ -195,7 +195,11 @@ def print_room_description(room_name):
 
     global g_rooms
 
-    # TODO print the room's description
+    # TODO print the room's description and list the items it currently
+    # contains, which means a loop that iterates over its item list,
+    # (which you retrieve from the "items" entry in the g_rooms
+    # dictionary), and then prints out the list. If the list contains
+    # no items, skip that part.
 
     #print "room description"
     print_room_description_soln(room_name)
