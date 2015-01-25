@@ -1,21 +1,164 @@
+import textwrap
 
 class Player:
-    def __init__(self):
-        # This is a list of names of items that player has taken. It starts off
-        # as empty. When you take an item, it gets added to this list, and when
-        # you drop an item, it gets removed from this list.
-        self.player_items = []
+    def __init__(self, game):
+
+        # This is the global Game that all players are using
+        self.game = game
+
+        # This is a set of items that player has taken. It starts off
+        # as empty. When you take an item, it gets added to this set, and when
+        # you drop an item, it gets removed from this set.
+        self.items = set()
 
         # This is the name of the current room that the player is in.
         self.current_room_name = None
 
-        # This is a list of all of names of all the rooms that the player has visited.
-        # It starts off with just the current room that they're in.
-        self.visited_room_names = []
+        # This is a set of all of names of all the rooms that the player has visited.
+        self.visited_room_names = set()
 
         # This is the player's current score. They get points for visiting a room
         # (but only the first time!)
         self.score = 0
+
+        # This is the list of messages (split by line) for the player.
+        self.msgs = []
+
+    def pprint(self, msg):
+        # add msg to current list of messages, and
+        # prune that list if it's longer than our max
+        self.msgs += textwrap.wrap(msg, 80)
+        self.msgs = self.msgs[-50:]
+
+    def get_messages(self):
+        return self.msgs
+
+    def check_move_command(self, command):
+        door_name = command
+
+        next_room_name = self.game.get_room_from_door(self.current_room_name, door_name)
+
+        if next_room_name != None:
+            self.move_to_room(next_room_name)
+            return True
+        else:
+            return False
+
+    def move_to_room(self, room_name):
+
+        # Update the global current room name.
+        self.current_room_name = room_name
+
+        # If this is the first time in this room (check visited_rooms) then
+        # add the room's score to the player's score, and print a msg
+        # about how many points they've earned.
+        if room_name in self.visited_room_names:
+            self.pprint("You are in the %s" % room_name)
+            return
+
+        # Remember that the user has now been here
+        self.visited_room_names.add(room_name)
+
+        # Print the room description
+        self.game.print_room_description(room_name)
+
+        # The player has earned the new room's value
+        room_value = self.game.get_room_score(room_name)
+
+        # Congratulate the player on his/her progress
+        if (room_value > 0):
+            self.score += room_value
+            self.pprint("You just earned %s points!" % room_value)
+
+    def take_item_command(self, room_name, command):
+
+        # First use the handy-dandy get_item_name utility function
+        # to extract the item name from the command.
+        item_name = self.get_item_name("take", command)
+
+        # If it's just "take" then return an appropriate
+        # error message.
+        if (not item_name):
+            self.pprint("You didn't specify what to take")
+            return
+
+        # Get the room's item list
+        room_item_names = self.game.get_room_items(room_name)
+
+        # If xxx isn't the name of an item in the room, then
+        # return a different error message.
+        if not item_name in room_item_names:
+            self.pprint("There is no %s in this room" % item_name)
+            return
+
+        # Otherwise, move the item from the room's list of items,
+        # add the item to the player's inventory,
+        # and print a confirmation string
+        # TODO catch case of someone else removing the same item
+        # before we get to, which should then throw an exception
+        self.game.remove_item_from_room(room_name, item_name)
+
+        self.add_item(item_name)
+        self.pprint("You now have the %s" % item_name)
+
+    def examine_item_command(self, room_name, command):
+
+        # First use the handy-dandy get_item_name utility function
+        # to extract the item name from the command.
+        item_name = self.get_item_name("examine", command)
+
+        # If it's just "examine" then return an appropriate
+        # error message.
+        if (not item_name):
+            self.pprint("You didn't specify what to examine")
+            return
+
+        # Use the handy-dandy player_has_item utility function to check if
+        # the player has the item in his/her possession, and print an
+        # error message if not.
+        if (not self.has_item(item_name)):
+            self.pprint("You don't have a " + item_name + " in your possession")
+            return
+
+        self.pprint(self.game.get_item_description(item_name))
+
+    def drop_item_command(self, room_name, command):
+
+        # First use the handy-dandy get_item_name utility function
+        # to extract the item name from the command.
+        item_name = self.get_item_name("drop", command)
+
+        # If it's just "drop" then return an appropriate
+        # error message.
+        if (not item_name):
+            self.pprint("You didn't specify what to drop")
+            return
+
+        # Use the handy-dandy player_has_item utility function to check if
+        # the player has the item in his/her possession, and print an
+        # error message if not.
+        if (not self.has_item(item_name)):
+            self.pprint("You don't have a " + item_name + " in your possession")
+            return
+
+        # Otherwise, remove the item from the player's inventory,
+        # and add it to the room's list of items, and print a
+        # confirmation string.
+        self.game.add_item_to_room(room_name, item_name)
+        self.remove_item(item_name)
+        self.pprint("You no longer have the %s" % item_name)
+
+    # Return True if the player has an item named item_name
+    def has_item(self, item_name):
+        return item_name in self.items
+
+    # Remove item_name from the player's set of items
+    def remove_item(self, item_name):
+        self.items.remove(item_name)
+
+    def add_item(self, item_name):
+        self.items.add(item_name)
+
 
 class Game:
 
@@ -58,7 +201,7 @@ class Game:
 # an "empty": False attribute, and this changes to True after you've had a drink.
 # Use your imagination.
 
-g_game_items = {"notebook":
+        self.items = {"notebook":
              {"description":
 '''notebook containing all kinds of complex diagrams, equations, assignments
 (many with very low grades), etc. in a completely random order. None of the
@@ -70,199 +213,55 @@ in the name "Peggy???" in red ink on several of the graded assignments.''',
               "takeable": True}
 }
 
-    def print_room_description_soln(room_name):
-        global g_rooms
+    def get_room_description(self, room_name):
 
         # Retrieve the current room by name
-        room = g_rooms[room_name]
+        room = self.rooms[room_name]
 
         # Print the room's description
-        print room['description']
+        room_description = textwrap.wrap(room['description'])
 
         # Get the room's item list
         item_names = room['items']
 
         # Print a comma-separated list of the room's items, if any.
-        if (item_names):
+        if (len(item_names) > 0):
             items_text = "the room contains the following items: "
             for item_name in item_names:
                 items_text += (item_name + ", ")
             items_text = items_text[:-2] # remove that last comma & space
-            print items_text
+            room_description.append(items_text)
 
-    def check_move_command_soln(room_name, command):
-        global g_rooms
+        return room_description
 
-        # Get the current room by name
-        room = g_rooms[room_name]
+    def get_room_score(self, room_name):
+        room = self.rooms[room_name]
+        return room['value']
 
-        # See if command is the name of a door in this room.
-        doors = room['doors']
-
-        # If so, move there and return True, otherwise return False.
-        if doors.has_key(command):
-            move_to_room(doors[command])
-            return True
+    # Give a door_name in a room_name, return the name of the room you get to through
+    # that door, or None if that's not a door name for the room.
+    def get_room_from_door(self, room_name, door_name):
+        room = self.rooms[room_name]
+        doors = room["doors"]
+        if door_name in doors:
+            return doors[door_name]
         else:
-            return False
+            return None
 
-    def move_to_room_soln(room_name):
-        global g_current_room_name
-        global g_visited_room_names
-        global g_score
+    def get_intro(self):
+        # TODO return an introduction to the game, with some helpful hints
 
-        # Update the global current room name.
-        g_current_room_name = room_name
+        return "intro"
 
-        # If this is the first time in this room (check visited_rooms) then
-        # add the room's score to the player's score, and print a msg
-        # about how many points they've earned.
-        if (g_visited_room_names.count(room_name) > 0):
-            print "You are in the %s" % room_name
+    def get_help(self):
+        # TODO return help text
 
-        # Remember that the user has now been here
-        g_visited_room_names.append(room_name)
+        return "help"
 
-        # Print the room description
-        print_room_description(room_name)
-
-        # Get the new room by name
-        room = g_rooms[room_name]
-
-        # The player has earned the new room's value
-        room_value = room['value']
-        g_score += room_value
-
-        # Congratulate the player on his/her progress
-        if (room_value > 0):
-            print "You just earned %s points!" % room_value
-
-    def take_item_command_soln(room_name, command):
-        global g_rooms
-        global g_player_items
-
-        # First use the handy-dandy get_item_name utility function
-        # to extract the item name from the command.
-        item_name = get_item_name("take", command)
-
-        # If it's just "take" then return an appropriate
-        # error message.
-        if (not item_name):
-            print "You didn't specify what to take"
-            return
-
-        # Get the current room by name
-        room = g_rooms[room_name]
-
-        # Get the room's item list
-        room_item_names = room['items']
-
-        # If xxx isn't the name of an item in the room, then
-        # return a different error message.
-        if (room_item_names.count(item_name) == 0):
-            print "There is no %s in this room" % item_name
-            return
-
-        # Otherwise, move the item from the room's list of items,
-        # add the item to the player's inventory,
-        # and print a confirmation string
-        room_item_names.remove(item_name)
-        g_player_items.append(item_name)
-        print "You now have the %s" % item_name
-
-    def examine_item_command_soln(room_name, command):
-        global g_player_items
-        global g_game_items
-
-        # First use the handy-dandy get_item_name utility function
-        # to extract the item name from the command.
-        item_name = get_item_name("examine", command)
-
-        # If it's just "examine" then return an appropriate
-        # error message.
-        if (not item_name):
-            print "You didn't specify what to examine"
-            return
-
-        # Use the handy-dandy player_has_item utility function to check if
-        # the player has the item in his/her possession, and print an
-        # error message if not.
-        if (not player_has_item(item_name)):
-            print "You don't have a " + item_name + " in your possession"
-            return
-
-        item = g_game_items[item_name]
-        print item['description']
-
-    def drop_item_command_soln(room_name, command):
-        global g_rooms
-        global g_player_items
-
-        # First use the handy-dandy get_item_name utility function
-        # to extract the item name from the command.
-        item_name = get_item_name("drop", command)
-
-        # If it's just "drop" then return an appropriate
-        # error message.
-        if (not item_name):
-            print "You didn't specify what to drop"
-            return
-
-        # Get the current room by name
-        room = g_rooms[room_name]
-
-        # Get the room's item list
-        room_item_names = room['items']
-
-        # Use the handy-dandy player_has_item utility function to check if
-        # the player has the item in his/her possession, and print an
-        # error message if not.
-        if (not player_has_item(item_name)):
-            print "You don't have a " + item_name + " in your possession"
-            return
-
-        # Otherwise, remove the item from the player's inventory,
-        # and add it to the room's list of items, and print a
-        # confirmation string.
-        g_player_items.remove(item_name)
-        room_item_names.append(item_name)
-        print "You no longer have the %s" % item_name
-
-
-    # End of solution code
-
-    def print_intro():
-        # Level - 1
-
-        # TODO print an introduction to the game, with some helpful hints
-
-        print "intro"
-
-    def print_help():
-        # Level - 2
-
-        # TODO print help text
-
-        print "help"
-
-    def print_goodbye():
-        # Level - 2
-
-        global g_score
-
+    def get_goodbye(self, score):
         # TODO print goodbye text, along with the player's current score
 
-        print "goodbye: ", g_score
-
-    def print_room_description(room_name):
-        # Level - 4
-
-        global g_rooms
-
-        # TODO print the room's description
-
-        #print "room description"
-        print_room_description_soln(room_name)
+        return "goodbye: %d" % score
 
     def print_items():
         # Level - 5
@@ -425,38 +424,35 @@ in the name "Peggy???" in red ink on several of the graded assignments.''',
 
     # This is a debugging function that ensures all rooms are reachable, and all
     # doors lead to a named room.
-    def check_room_graph():
-        current_room = g_rooms.keys().pop(0)
+    def check_room_graph(self):
+        current_room = self.rooms.keys().pop(0)
         visited_rooms = set()
-        check_room(visited_rooms, current_room)
+        self.check_room(visited_rooms, current_room)
 
         # Now verify that we visited every room.
-        for room in g_rooms.keys():
+        for room in self.rooms.keys():
             if not room in visited_rooms:
                 print "We never visited %s" % room
             else:
                 print "We visited %s" % room
 
-    def check_room(visited_rooms, room):
+    def check_room(self, visited_rooms, room):
         if not room in visited_rooms:
             visited_rooms.add(room)
-            doors = g_rooms[room]["doors"]
+            doors = self.rooms[room]["doors"]
             for door in doors.keys():
                 next_room = doors[door]
                 print "%s from %s goes to %s" % (door, room, next_room)
-                check_room(visited_rooms, next_room)
+                self.check_room(visited_rooms, next_room)
 
     # This is a debugging function that ensures all items are located in some
     # room, but only one room.
-    def check_items():
-        global g_game_items
-        global g_rooms
-
-        missing_items = set(g_game_items.keys())
+    def check_items(self):
+        missing_items = set(self.items.keys())
         found_items = set()
 
         for room in g_rooms.keys():
-            room_items = g_rooms[room]["items"]
+            room_items = self.rooms[room]["items"]
             for room_item in room_items:
                 if room_item in found_items:
                     print "%s is in two different rooms" % room_item
