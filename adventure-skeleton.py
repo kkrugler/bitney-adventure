@@ -42,7 +42,7 @@ def print_items():
     global g_player_items
 
     # TODO print a list of the item names that the player has, which
-    # means a loop that iterates over the g_game_items list, and prints
+    # means a loop that iterates over the g_items list, and prints
     # out the list. If the player has nothing, print "You've got nothing"
 
     pprint("You've got nothing")
@@ -107,7 +107,7 @@ def examine_item_command(room_name, command):
     # Level - 3
 
     global g_player_items
-    global g_game_items
+    global g_items
 
     # First use the handy-dandy get_item_name utility function to extract
     # the item name from the command.
@@ -226,7 +226,7 @@ def check_room(visited_rooms, room):
 # This is a debugging function that ensures all items are located in some
 # room, but only one room.
 def check_items():
-    global g_game_items
+    global g_items
     global g_rooms
 
     # We start off with a list of all items, and remove ones that we find, so what's
@@ -514,7 +514,7 @@ g_rooms = {"Computer Lab":
 # an "empty": False attribute, and this changes to True after you've had a drink.
 # Use your imagination.
 
-g_game_items = {
+g_items = {
             "Notebook":
              {"description":
 '''notebook containing all kinds of complex diagrams, equations, assignments

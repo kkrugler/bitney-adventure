@@ -269,7 +269,7 @@ in the name "Peggy???" in red ink on several of the graded assignments.''',
         global g_player_items
 
         # TODO print a list of the item names that the player has, which
-        # means a loop that iterates over the g_game_items list, and prints
+        # means a loop that iterates over the g_items list, and prints
         # out the list. If the player has nothing, print "You've got nothing"
 
         print "You've got nothing"

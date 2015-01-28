@@ -5,10 +5,9 @@ import re
 # TODO - put back in (part of) Michael's description of Dave's office
 # TODO - add logic to kill the player if they walk into the bathroom stall w/o the vial of blood
 
-# TODO - change all xxx_command functions into check_xxx_command functions, so they can
-#        be responsible for handling things like "drop the xxx" vs. "drop xxx"
-# TODO - use a Player class versus a player dictionary and a bunch of functions
 # TODO - catch print calls by trapping stdout ala codecademy framework, and warn if so
+# TODO - move console code to adventure_console.py, so this just has general purpose
+#        game code.
 
 # Add the player "player_name" to the game, by creating a new player dictionary
 # and filling it with default values (no score, no messages, etc)
@@ -42,10 +41,10 @@ def player_add_msg(player_name, msg):
     msg = re.sub("(^|\n)[ ]+", " ", msg)
 
     # wrap (or re-wrap) msg so that each line (which ends
-    # with a \n) will be at most 70 characters long. This
+    # with a \n) will be at most 80 characters long. This
     # will also turn the msg string into a list of strings,
-    # one per (wrapped to 70 chars) line.
-    msg_lines = textwrap.wrap(msg, 70)
+    # one per (wrapped to 80 chars) line.
+    msg_lines = textwrap.wrap(msg, 80)
 
     # Get the player's current list of messages, and add
     # our new list of messages.
@@ -56,8 +55,8 @@ def player_add_msg(player_name, msg):
     # get added.
     msgs += [""]
 
-    # Limit the player's messages to at most 20 lines.
-    msgs = msgs[-20:]
+    # Limit the player's messages to at most 50 lines.
+    msgs = msgs[-50:]
 
     # Update the player's messages with the result of above.
     g_players[player_name]["msgs"] = msgs
@@ -125,8 +124,12 @@ def print_room_description(player_name, room_name):
     item_names = room['items']
 
     # Print a comma-separated list of the room's items, if any.
-    items_text = format_item_names(item_names, "see")
-    if (items_text):
+    if (item_names):
+        items_text = "the room contains the following items: "
+        for item_name in item_names:
+            items_text += (item_name + ", ")
+
+        items_text = items_text[:-2] # remove that last comma & space
         player_add_msg(player_name, items_text)
 
 def check_move_command(player_name, room_name, command):
@@ -162,19 +165,11 @@ def move_to_room(player_name, room_name):
     # If they've already visited the room,
     # print a short message and return.
     if visited_room_before:
-        # Handle "You are in in Mr. xxx's rooom", where there is no "the " before the
-        # room name.
-        preposition = "the "
-        if "preposition" in g_rooms[room_name]:
-            preposition = g_rooms[room_name]["preposition"]
-
-        player_add_msg(player_name, "You are in %s%s" % (preposition, room_name))
+        player_add_msg(player_name, "You are in the %s" % room_name)
         return
 
     # TODO add special logic here to handle visiting Dave's Room for the
-    # first time. You'd need to set a new attribute for the user, to keep
-    # track of how many times they'd been in his room, and change the description
-    # that gets printed out when they "look".
+    # first time. If so, print out the special description, and then
     #
     # Since this is the first time in this room, print the full room
     # description and add the room's score to the player's score, and
@@ -194,38 +189,30 @@ def move_to_room(player_name, room_name):
         player_set_score(player_name, player_get_score(player_name) + room_value)
         player_add_msg(player_name, "You just earned %s points!" % room_value)
 
-def check_take_command(player_name, command):
+def take_item_command(player_name, room_name, command):
     global g_rooms
 
     # First use the handy-dandy get_item_name utility function
     # to extract the item name from the command.
     item_name = get_item_name("take", command)
 
-    if (item_name == None):
-        # If it isn't "take" or "take xxx" then return false, it's not
-        # the take command
-        return False
-    elif item_name == "":
+    # If it's just "take" then return an appropriate
+    # error message.
+    if (not item_name):
         player_add_msg(player_name, "You didn't specify what to take")
-        return True
+        return
 
     # Get the current room by name
-    room_name = player_get_room(player_name)
     room = g_rooms[room_name]
 
     # Get the room's item list
     room_item_names = room['items']
 
     # If xxx isn't the name of an item in the room, then
-    # add a different error message.
+    # return a different error message.
     if (room_item_names.count(item_name) == 0):
         player_add_msg(player_name, "There is no %s in this room" % item_name)
-        return True
-
-    # if xxx isn't takeable, add an error message.
-    if not g_items[item_name]["takeable"]:
-        player_add_msg(player_name, "You can't take the %s" % item_name)
-        return True
+        return
 
     # Otherwise, move the item from the room's list of items,
     # add the item to the player's inventory,
@@ -233,7 +220,6 @@ def check_take_command(player_name, command):
     room_item_names.remove(item_name)
     player_add_item(player_name, item_name)
     player_add_msg(player_name, "You now have the %s" % item_name)
-    return True
 
 def examine_item_command(player_name, room_name, command):
     global g_items
@@ -252,17 +238,11 @@ def examine_item_command(player_name, room_name, command):
     # the player has the item in his/her possession, and print an
     # error message if not.
     if not item_name in player_get_items(player_name):
-        # But wait - you can examine an item not in your possession if it's in the
-        # room with you and it's not takeable.
-        if item_name in g_rooms[room_name]["items"] and not g_items[item_name]["takeable"]:
-            # OK, drop through to following code.
-            None
-        else:
-            player_add_msg(player_name, '''Lexi & Emilie say - "No way, Jose. You do not have the %s"''' % item_name)
-            return
+        player_add_msg(player_name, '''Lexi & Emilie say - "No way, Jose. You do not have the %s"''' % item_name)
+        return
 
-    item = g_items[item_name]
-    if item_name == "notebook" and g_items["notebook"]["open"]:
+    item = g_game_items[item_name]
+    if item_name == "notebook" and g_game_items["notebook"]["open"]:
         description = item["open description"]
     else:
         description = item["description"]
@@ -321,7 +301,7 @@ def print_help(player_name):
 def print_goodbye(player_name):
     player_add_msg(player_name, '''Ben says - "Thank you for exploring the wonderful Bitney campus, %s.
     We hope you enjoyed your adventure and learned a little bit more about the interesting
-    things that go on here. You have %d Bitney points"''' % (player_name, player_get_score(player_name)))
+    things that go on here. Your Bitney points are %d"''' % (player_name, player_get_score(player_name)))
 
 def print_room_description(player_name, room_name):
     global g_rooms
@@ -336,19 +316,12 @@ def print_room_description(player_name, room_name):
     item_names = room['items']
 
     # Print a comma-separated list of the room's items, if any.
-    items_text = format_item_names(item_names, "see")
-    if (items_text):
-        player_add_msg(player_name, items_text)
-
-def format_item_names(item_names, verb):
     if (len(item_names) > 0):
-        items_text = "You %s the following item%s: " % (verb, ("" if len(item_names) == 1 else "s"))
+        items_text = "the room contains the following items: "
         for item_name in item_names:
             items_text += (item_name + ", ")
         items_text = items_text[:-2] # remove that last comma & space
-        return items_text
-    else:
-        return None
+        player_add_msg(player_name, items_text)
 
 # Print the name of every item that the player has taken.
 
@@ -356,8 +329,12 @@ def print_items(player_name):
 
     # Use player_get_items to get the set of items the player has.
     item_names = player_get_items(player_name)
-    items_text = format_item_names(item_names, "have")
-    if items_text == None:
+    if (len(item_names) > 0):
+        items_text = "You have the following items: "
+        for item_name in item_names:
+            items_text += (item_name + ", ")
+        items_text = items_text[:-2] # remove that last comma & space
+    else:
         items_text = "You've got nothing"
 
     player_add_msg(player_name, items_text)
@@ -440,13 +417,8 @@ def game_complete(player_name):
 # It lower-cases the thing being taken, so that it's easier to compare to
 # the item names (keys) in g_items dictionary
 def get_item_name(action, command):
-    if (command == action) or (command == action + " the"):
-        # They didn't specify what to take
-        return ""
-    elif command.startswith(action + " the "):
-        return command[len(action) + len(" the "):]
-    elif command.startswith(action + " "):
-        return command[len(action) + len(" "):]
+    if command.startswith(action + " "):
+        return command[len(action) + 1:].lower()
     else:
         return None
 
@@ -481,7 +453,7 @@ def check_items():
     global g_items
     global g_rooms
 
-    missing_items = set(g_items.keys())
+    missing_items = set(g_game_items.keys())
     found_items = set()
 
     for room in g_rooms.keys():
@@ -536,58 +508,42 @@ g_players = {}
 # a "locked": True attribute, and you have to unlock it first before you can go through
 # that door. Use your imagination.
 
-g_rooms = {
-    "Computer Lab": {
-        "description": "The computer lab is filled with glowing screens and old chairs, your back is to a white board. There is a door to the east",
-        "items": ["notebook"],
-        "value": 5,
-        "doors": {"east": "Hallway"}
-    },
-
-    "Hallway": {
-        "description": "The hallway is filled with colorful murals, lockers line the western wall. The hallway extends north and south, and a door to the east and west",
-        "items": [],
-        "value": 0,
-        "doors": {"west": "Computer Lab", "east": "Mr. Wood's Room", "north": "North Hallway", "south": "South Hallway"}
-    },
-
-    "North Hallway": {
-        "description": "the North Hallway contains artwork, there is a door labeled 'Boys Bathroom' to your east. to your north appears to be a more open area. To the south there is the Hallway..",
-        "items": [],
-        "value": 0,
-        "doors": {"south": "Hallway", "north": "Atrium", "east": "Boys Bathroom"}
-    },
-
-    "South Hallway": {
-        "description": "the south hallway also holds more artwork and murals on the walls. There is the Girls Bathroom to the east, a door to the west, and an open area to the south. to the north is the hallway.",
-        "items": [],
-        "value": 0,
-        "doors": {"north": "Hallway", "south": "South Area", "west": "Storage Room", "east": "Girls Bathroom"}
-    },
-
-    "Boys Bathroom": {
-        "description": "The bathroom has a sink, a mirror, a urinal, and a stall. No surprises here. The stall is occupied. The exit is to your west.",
-        "items": ["meme"],
-        "value": 0,
-        "doors": {"west": "North Hallway", "east": "Stall"}
-    },
-
-    "Stall": {
-        "description": "you walk in and notice the floor is flooded inside the stall yet outside it no water can be found. A voice from the toilet speaks 'the price must be paid'. if the player walks into the stall without the vial of blood they die. If they have the vial of blood they pour it down the toilet and are given a random item. the exit is to the west",
-        "items": [],
-        "value": 5,
-        "doors": {"west": "Boys Bathroom"}
-    },
-
-    "Girls Bathroom": {
-        "description": '''A calming pink room with art in progress on the walls. It has 2 stalls, 2 sinks, 2 mirrors
-        and a window. The exit is to your west.''',
-        "items": ["physics binder"],
-        "value": 2,
-        "doors": {"west": "South Hallway"}
-    },
-
-    "Storage Room":
+g_rooms = {"Computer Lab":
+             {"description": "The computer lab is filled with glowing screens and old chairs, your back is to a white board. There is a door to the east",
+              "items": ["notebook"],
+              "value": 5,
+              "doors": {"east": "Hallway"}},
+         "Hallway":
+             {"description": "The hallway is filled with colorful murals, lockers line the western wall. The hallway extends north and south, and a door to the east and west",
+              "items": [],
+              "value": 0,
+              "doors": {"west": "Computer Lab", "east": "Mr. Wood's Room", "north": "North Hallway", "south": "South Hallway"}},
+         "North Hallway":
+             {"description": "the North Hallway contains artwork, there is a door labeled 'Boys Bathroom' to your east. to your north appears to be a more open area. To the south there is the Hallway..",
+              "items": [],
+              "value": 0,
+              "doors": {"south": "Hallway", "north": "Atrium", "east": "Boys Bathroom"}},
+         "South Hallway":
+             {"description": "the south hallway also holds more artwork and murals on the walls. There is the Girls Bathroom to the east, a door to the west, and an open area to the south. to the north is the hallway.",
+              "items": [],
+              "value": 0,
+              "doors": {"north": "Hallway", "south": "South Area", "west": "Storage Room", "east": "Girls Bathroom"}},
+         "Boys Bathroom":
+             {"description": "The bathroom has a sink, a mirror, a urinal, and a stall. No surprises here. the stall is occupied. The exit is to your west.",
+              "items": ["meme"],
+              "value": 0,
+              "doors": {"west": "North Hallway", "east": "Stall"}},
+         "Stall":
+             {"description": "you walk in and notice the floor is flooded inside the stall yet outside it no water can be found.A voice from the toilet speaks 'the price must be paid'. if the player walks into the stall without the vial of blood they die. If they have the vial of blood they pour it down the toilet and are given a random item. the exit is to the west",
+              "items": [],
+              "value": 5,
+              "doors": {"west": "Boys Bathroom"}},
+         "Girls Bathroom":
+             {"description": "A calming pink room with art in progress on the walls. It has 2 stalls, 2 sinks, 2 mirrors and a window. The exit is to your west.",
+              "items": ["physics binder"],
+              "value": 2,
+              "doors": {"west": "South Hallway"}},
+         "Storage Room":
              {"description": "The storage room is locked. Head east to return to the South Hallway.",
               "items": [],
               "value": 0,
@@ -606,7 +562,6 @@ g_rooms = {
              {"description":  "The messy room of a maddened artist. This room is barely lit and has many tables. The walls are covered in propaganda all in different languages. There are two white bords one has a map of america and the other has a map of Russia. There is a life sized statue of George Washington in the room. There is a door to the north, east, and west",
               "items": ["statue"],
               "value": 1,
-              "preposition": "",
               "doors": {"north": "Art Closet", "west": "Hallway", "east": "Picnic Tables"}},
          "Art Closet":
              {"description": "A cluttered confusion of art supplies. The odor of paint fills your nose. the exit is to your south.",
@@ -633,25 +588,16 @@ g_rooms = {
               "items": [],
               "value": 5,
               "doors": {"east": "Teacher Area", "west": "Atrium"}},
-
-    "Picnic Tables": {
-        "description": '''You are outside under a green tent, surrounded by green picnic tables whose tops are
-        polka-dotted with paint and bare spots. There is the remnant of a freshman's lunch on a table. To the
-        north are some teachers talking in their area. To the west is a door. To the south is a basketball court
-        that has a few cars parked on it.''',
-        "items": [],
-        "value": 10,
-        "doors": {"north": "Teacher Area", "south": "Basketball Court", "west": "Mr. Wood's Room", "east": "Fence Post"}
-    },
-
-    "Fence Post": {
-        "description": '''You just whacked your head into a fence post. Head west or south to turn around a different
-        direction''',
-        "items": [],
-        "value": 50,
-        "doors": {"west": "Picnic Tables", "South": "Greenhouse"}
-    },
-
+         "Picnic Tables":
+             {"description": "You are outside under a green tent, surrounded by green picknic tables whose tops are pocadotted with paint and peeled away paint. There is the remnence of a freshmans lunch on a table. to the north are some teachers talking in their area. to the west is a door. to the south is a basketball court that has a few cars parked on it.",
+              "items": [],
+              "value": 10,
+              "doors": {"north": "Teacher Area", "south": "Basketball Court", "west": "Mr. Wood's Room", "east": "Fence Post"}},
+         "Fence Post":
+             {"description": "You just whacked your head into a fence post. Head west or south to turn around a different direction",
+              "items": [],
+              "value": 50,
+              "doors": {"west": "Picnic Tables", "South": "Greenhouse"}},
          "Greenhouse":
              {"description": "you just whacked your head into the greenhouse.... that must have hurt.... head west to take a break at the Basketball Court tables",
               "items": [],
@@ -666,24 +612,22 @@ g_rooms = {
              {"description": "A single windowed room with mysterious symbols on the walls. It smells strongly of body oder. the exit is to the east... better hurry! it smells!",
               "items": [],
               "value": 10,
-              "preposition": "",
               "doors": {"east": "South Area"}},
          "Science Room":
              {"description": "A rather large room full of desks, chairs, and science tools. There are doors to the north, east, and south.",
               "items": ["vial of blood", "pop tart"],
               "value": 10,
               "doors": {"north": "Science Bathroom", "east": "Secret Hallway", "south": "Parking Area"}},
-         "Mr. Elkin's Car":
+         "Elkin's Car":
              {"description": "A brown scion is parked, and Mr. Elkin is there, happily chewing on a sandwich. You look around, and notice a deck to your south, another door off to your north, and the base of some stairs to your west. There is also the smiley guys parking lot to the east. elkin warns you not to go because you may get run over, but you may try anyways.",
               "items": [],
               "value": 30,
-              "preposition": "",
               "doors": {"east": "Smiley Guys Parking Lot", "south": "Office Porch", "west": "Base of Stairs", "north": "Humanities Hall"}},
          "Smiley Guys Parking Lot":
              {"description": "*crunch* *slam* *honk*. you just got hit by a car and are dead. But, seeing as you are new here, we'll give you a second chance at life. enter 'respawn' if you wish to try again",
               "items": [],
               "value": 100,
-              "doors": {"respawn": "Mr. Elkin's Car"}},
+              "doors": {"respawn": "Elkin's Car"}},
          "Secret Hallway":
              {"description": "A small unlit hallway with a door at either end, not very exciting. not sure why it's 'Secret'. there is a door to the west and east",
               "items": [],
@@ -703,7 +647,7 @@ g_rooms = {
              {"description": "Several long tables form a 'U' shape facing a podium. There is an odd door to the north. there are also doors to the east, south, and west.",
               "items": [],
               "value": 20,
-              "doors": {"east": "Kill Room", "west": "Secret Hallway", "south": "Mr. Elkin's Car", "north": "Humanities Bathroom"}},
+              "doors": {"east": "Kill Room", "west": "Secret Hallway", "south": "Elkin's Car", "north": "Humanities Bathroom"}},
          "Kill Room":
              {"description": "Completely dark.... the clanking sounds of folded chairs can be hears. the exit is to the south.",
               "items": [],
@@ -718,7 +662,7 @@ g_rooms = {
              {"description": "you find yourself at a base of stairs. you can either go south and go up, or you can west to the parking area, or east over the Mr. Elkin",
               "items": [],
               "value": 0,
-              "doors": {"south": "Back Porch", "east": "Mr. Elkin's Car", "west": "Parking Area"}},
+              "doors": {"south": "Back Porch", "east": "Elkin's Car", "west": "Parking Area"}},
          "Back Porch":
              {"description": "you find yourself on a porch to the back of the office building. you can either go north down the stairs in the direction of the parking area, or you can go east to a door that leads inside.",
               "items": [],
@@ -738,7 +682,7 @@ g_rooms = {
              {"description": "This is where the cool kids chill out. to the north you see Mr. elkin chewing on a sandwich. to the west there is a great wooden double door. to the east is the parking lot, which looks dangerous, but you may try to escape there for some food...",
               "items": [],
               "value": 40,
-              "doors": {"north": "Mr. Elkin's Car", "east": "Parking Lot", "west": "Lobby"}},
+              "doors": {"north": "Elkin's Car", "east": "Parking Lot", "west": "Lobby"}},
          "Basketball Court":
              {"description": "There is a basketball hoop with cars parked around it. not very good for playing basketball. there are picnic tables to the north, a door off the west, and a greenhouse to the east....",
               "items": ["basketball"],
@@ -753,7 +697,6 @@ g_rooms = {
              {"description": "part of the office lobby where Angelina resides. There is a door to the north and west. A lobby is to your south",
               "items": [],
               "value": 10,
-              "preposition": "",
               "doors": {"west": "Teacher's Lounge", "north": "Dave's Office", "south": "Lobby"}},
          "Stair Landing":
              {"description": "there are two stairs leading up to an upper area. go east to return to the lobby, command 'up' if you wish to go up",
@@ -764,13 +707,11 @@ g_rooms = {
              {"description": "Where the Pop Tart king resides. This room is full of light from the windows. there is a cart, a desk, and a projector. To the north and west there are doors",
               "items": [],
               "value": 20,
-              "preposition": "",
               "doors": {"north": "Lobby", "west": "Office Bathroom"}},
          "Dave's Office":
              {"description": "A small office with a round table, and a desk with a Mac on it. the exit is to the south",
               "items": [],
               "value": 20,
-              "preposition": "",
               "doors": {"south": "Angelina's Desk Area"}},
          "Teacher's Lounge":
              {"description": "There is a table with chairs surrounding it, and a printer in the corner. There are several bookshelves. There is also a closet that has a sign saying 'KEEP OUT'. the exit is to the east.",
@@ -781,7 +722,6 @@ g_rooms = {
              {"description": "The room where Russ resides and handles the daily responsiblies of a principal which is upstairs of the office. the exit is to the south",
               "items": [],
               "value": 30,
-              "preposition": "",
               "doors": {"south": "Upstairs Area"}},
          "Kitchen":
              {"description": "This room contains a refridgerator, stove, sink, and countertops. A couple windows. the exit is to the north.",
@@ -906,10 +846,6 @@ def player_command(player_name, command):
     # that knows how to handle that command. So we'd have functions for handling
     # commands like "bye", "help", "list", etc.
 
-    # Lower-case, so that "Bye" is the same as "bye", and remove trailing
-    # and leading spaces to simplify parsing.
-    command = command.lower().strip()
-
     # See if the command is one of our special commands.
     if command == "bye":
         # Print a goodbye message, and tell the caller we're all done.
@@ -929,8 +865,8 @@ def player_command(player_name, command):
         check_room_graph()
         check_items()
 
-    elif check_take_command(player_name, command):
-        None
+    elif command.startswith("take"):
+        take_item_command(player_name, player_get_room(player_name), command)
 
     elif command.startswith("drop"):
         drop_item_command(player_name, player_get_room(player_name), command)
@@ -965,3 +901,26 @@ def player_command(player_name, command):
 
     return True
 
+# ===================================================
+# Start of the main game code
+# ===================================================
+
+# Get the new player's name, and add them to the game.
+player_name = raw_input("What is your name? ")
+player_start(player_name)
+
+# Keep looping until the game is complete (or the user enters "bye")
+while not game_complete(player_name):
+
+    # Print any messages that have been accumulated for the player
+    print_and_clear_msgs(player_name)
+
+    # Get the user's command
+    command = raw_input("> ")
+
+    # When player_command returns False, we're all done
+    if not player_command(player_name, command):
+        break;
+
+# Output any final text
+print_and_clear_msgs(player_name)
