@@ -1,14 +1,97 @@
 import textwrap
 import re
 
+# TODO - maybe get Dave's help in coming up with content?
+
 # TODO - fix up room descriptions for typos, etc.
 # TODO - put back in (part of) Michael's description of Dave's office
-# TODO - add logic to kill the player if they walk into the bathroom stall w/o the vial of blood
+# TODO - entering the stall w/deoderant should print different msg the first time you do that
+'''TODO - make sure all items play a roll
+    you need key (from ???) to unlock storage room to get plunger
+    use plunger in stall, voice says "The price has been paid", and you have something in possession...what?
+    you need to eat the donut to leave the Bistro, but you have to go to the bistro to get something
+    have another locked door besides storage room, but key doesn't work in it
+    meme can be swapped for anything, but it then gets put in some random other room. Same thing happens to it
+        whenever you pick anything up.
+    donut has to magically reappear after being eaten, for other players (The friendly staff at the Bistro put another delicious donut on the plate)
+
+    notebook - has some clue
+    note - has a clue about connection between notebook and student
+    basketball - if you give this to Mr. Peterson, you get something
+    statue - ???
+    random number - examining it provides a clue about a locker combo. Do they have those?
+    pop tart - ???. Something about exchanging it for the donut?
+
+'''
+
+# Multi-player stuff
+# When entering a room, or exiting a room, update every other player's msg queue
+# Be able to swap items if player in room with you
+# Be able to get a hall pass from Angelina that lets you "swap" for something, but then hall pass disappears
+#   But to get the hall pass, you have to answer a question correctly
 
 # TODO - change all xxx_command functions into check_xxx_command functions, so they can
 #        be responsible for handling things like "drop the xxx" vs. "drop xxx"
 # TODO - use a Player class versus a player dictionary and a bunch of functions
+# TODO - use a Room class versus a room dictionary and a bunch of functions
+# TODO - use an Item class versus an item dictionary and a bunch of functions
 # TODO - catch print calls by trapping stdout ala codecademy framework, and warn if so
+# TODO - look needs to handle special description - push that logic into print function?
+
+# TODO - need way to broadcast a msg to everyone when somebody enters a room (everybody in that room gets it)
+#        same thing when an item magically appears in a room.
+
+class Player:
+
+    def __init__(self, name):
+        self.name = name
+        self.room = None
+        self.visited_rooms = set()
+        self.items = set()
+        self.score = 0
+        self.msgs = []
+
+    def get_msgs(self):
+        return self.msgs
+
+    def remove_msgs(self):
+        result = self.msgs
+        self.msgs = []
+        return result
+
+    def add_msg(self, msg):
+        # msg might be coming in with leading spaces before
+        # each line, which we want to remove. So use handy
+        # regular expression (re) to remove those.
+        msg = re.sub("(^|\n)[ ]+", " ", msg)
+
+        # wrap (or re-wrap) msg so that each line (which ends
+        # with a \n) will be at most 70 characters long. This
+        # will also turn the msg string into a list of strings,
+        # one per (wrapped to 70 chars) line.
+        msg_lines = textwrap.wrap(msg, 70)
+
+        # Get the player's current list of messages, and add
+        # our new list of messages.
+        self.msgs += msg_lines
+
+        # Add a blank line between each group of lines that
+        # get added.
+        self.msgs += [""]
+
+        # Limit the player's messages to at most 20 lines.
+        self.msgs = self.msgs[-20:]
+
+    def get_room(self):
+        return self.room
+
+    def set_room(self, room_name):
+        self.room = room_name
+        if not room_name in self.visited_rooms:
+            self.visited_rooms.add(room_name)
+            return True
+        else:
+            return False
 
 # Add the player "player_name" to the game, by creating a new player dictionary
 # and filling it with default values (no score, no messages, etc)
@@ -110,6 +193,9 @@ def player_add_item(player_name, item_name):
 def player_remove_item(player_name, item_name):
     player_get_items(player_name).remove(item_name)
 
+def player_has_item(player_name, item_name):
+    return item_name in player_get_items(player_name)
+
 # Print the room's description by adding ot the player's
 # list of messages.
 def print_room_description(player_name, room_name):
@@ -120,6 +206,12 @@ def print_room_description(player_name, room_name):
 
     # Print the room's description
     player_add_msg(player_name, room['description'])
+
+    # If we're entering the stall w/o the deoderant, we are going to be printing out a special message and
+    # then immediately exiting the room without printing a list of items.
+    # TODO use more general approach to this
+    if room_name == "Stall" and not player_has_item(player_name, "deoderant"):
+        return
 
     # Get the room's item list
     item_names = room['items']
@@ -152,6 +244,16 @@ def check_move_command(player_name, room_name, command):
     else:
         return False
 
+# Handle special cases for entering a room.
+# TODO add enter_special_room and exit_special_room
+def enter_special_room(player_name, room_name):
+    if room_name == "Stall" and not player_has_item(player_name, "deoderant"):
+        player_add_msg(player_name, "You wake up to find yourself back in the Boys Bathroom")
+        player_set_room(player_name, "Boys Bathroom")
+
+    return
+
+
 def move_to_room(player_name, room_name):
 
     visited_room_before = room_name in player_get_visited_rooms(player_name)
@@ -169,6 +271,7 @@ def move_to_room(player_name, room_name):
             preposition = g_rooms[room_name]["preposition"]
 
         player_add_msg(player_name, "You are in %s%s" % (preposition, room_name))
+        enter_special_room(player_name, room_name)
         return
 
     # TODO add special logic here to handle visiting Dave's Room for the
@@ -193,6 +296,9 @@ def move_to_room(player_name, room_name):
     if (room_value > 0):
         player_set_score(player_name, player_get_score(player_name) + room_value)
         player_add_msg(player_name, "You just earned %s points!" % room_value)
+
+    enter_special_room(player_name, room_name)
+
 
 def check_take_command(player_name, command):
     global g_rooms
@@ -251,7 +357,7 @@ def examine_item_command(player_name, room_name, command):
     # Use the handy-dandy player_has_item utility function to check if
     # the player has the item in his/her possession, and print an
     # error message if not.
-    if not item_name in player_get_items(player_name):
+    if not player_has_item(player_name, item_name):
         # But wait - you can examine an item not in your possession if it's in the
         # room with you and it's not takeable.
         if item_name in g_rooms[room_name]["items"] and not g_items[item_name]["takeable"]:
@@ -322,23 +428,6 @@ def print_goodbye(player_name):
     player_add_msg(player_name, '''Ben says - "Thank you for exploring the wonderful Bitney campus, %s.
     We hope you enjoyed your adventure and learned a little bit more about the interesting
     things that go on here. You have %d Bitney points"''' % (player_name, player_get_score(player_name)))
-
-def print_room_description(player_name, room_name):
-    global g_rooms
-
-    # Retrieve the current room by name
-    room = g_rooms[room_name]
-
-    # Print the room's description
-    player_add_msg(player_name, room['description'])
-
-    # Get the room's item list
-    item_names = room['items']
-
-    # Print a comma-separated list of the room's items, if any.
-    items_text = format_item_names(item_names, "see")
-    if (items_text):
-        player_add_msg(player_name, items_text)
 
 def format_item_names(item_names, verb):
     if (len(item_names) > 0):
@@ -508,7 +597,7 @@ def print_and_clear_msgs(player_name):
     for msg in msgs:
         print msg
 
-# rooms is a dictionary, where the key is the player name, and the value is a "player"
+# g_players is a dictionary, where the key is the player name, and the value is a "player"
 # Each player is also a dictionary, where the key is one of several possible player attributes
 #   name:           Player name
 #   room:           Name of room the player is in
@@ -538,42 +627,47 @@ g_players = {}
 
 g_rooms = {
     "Computer Lab": {
-        "description": "The computer lab is filled with glowing screens and old chairs, your back is to a white board. There is a door to the east",
+        "description": "The computer lab is filled with glowing screens and old chairs. Your back is to a white board. There is a door to the east.",
         "items": ["notebook"],
         "value": 5,
         "doors": {"east": "Hallway"}
     },
 
     "Hallway": {
-        "description": "The hallway is filled with colorful murals, lockers line the western wall. The hallway extends north and south, and a door to the east and west",
+        "description": "The hallway is filled with colorful murals, lockers line the western wall. The hallway extends north and south, and there are doors to the east and west.",
         "items": [],
         "value": 0,
         "doors": {"west": "Computer Lab", "east": "Mr. Wood's Room", "north": "North Hallway", "south": "South Hallway"}
     },
 
     "North Hallway": {
-        "description": "the North Hallway contains artwork, there is a door labeled 'Boys Bathroom' to your east. to your north appears to be a more open area. To the south there is the Hallway..",
+        "description": "The north hallway is decorated with colorful artwork. You see a door labeled 'Boys Bathroom' to your east. To the north appears to be a more open area, and to the south there is the hallway.",
         "items": [],
         "value": 0,
         "doors": {"south": "Hallway", "north": "Atrium", "east": "Boys Bathroom"}
     },
 
     "South Hallway": {
-        "description": "the south hallway also holds more artwork and murals on the walls. There is the Girls Bathroom to the east, a door to the west, and an open area to the south. to the north is the hallway.",
+        "description": "The south hallway also holds more artwork and murals on the walls. There is the Girls Bathroom to the east, a door to the west, and an open area to the south. To the north is the hallway.",
         "items": [],
         "value": 0,
         "doors": {"north": "Hallway", "south": "South Area", "west": "Storage Room", "east": "Girls Bathroom"}
     },
 
     "Boys Bathroom": {
-        "description": "The bathroom has a sink, a mirror, a urinal, and a stall. No surprises here. The stall is occupied. The exit is to your west.",
+        "description": "The bathroom has a sink, a mirror, a urinal, and a stall. No surprises here. The stall appears to be occupied. The exit is to your west.",
         "items": ["meme"],
         "value": 0,
         "doors": {"west": "North Hallway", "east": "Stall"}
     },
 
     "Stall": {
-        "description": "you walk in and notice the floor is flooded inside the stall yet outside it no water can be found. A voice from the toilet speaks 'the price must be paid'. if the player walks into the stall without the vial of blood they die. If they have the vial of blood they pour it down the toilet and are given a random item. the exit is to the west",
+        "description":
+'''You walk in and notice the floor is flooded inside the stall yet outside it no water can be found. An incredible stench fills the air. A voice from the toilet speaks 'the price must be paid'.
+Your eyes water, and you fall to the floor.''',
+        "description_with_deoderant":
+'''You walk in and notice the floor is flooded inside the stall yet outside it no water can be found. An incredible stench fills the air, but the lavendar scent from your potpourri fights back, and you manage to
+remain conscious. You notice the toilet is overflowing with water.''',
         "items": [],
         "value": 5,
         "doors": {"west": "Boys Bathroom"}
@@ -582,18 +676,20 @@ g_rooms = {
     "Girls Bathroom": {
         "description": '''A calming pink room with art in progress on the walls. It has 2 stalls, 2 sinks, 2 mirrors
         and a window. The exit is to your west.''',
-        "items": ["physics binder"],
+        "items": [],
         "value": 2,
         "doors": {"west": "South Hallway"}
     },
 
-    "Storage Room":
-             {"description": "The storage room is locked. Head east to return to the South Hallway.",
-              "items": [],
-              "value": 0,
-              "doors": {"east": "South Hallway"}},
-         "Atrium":
-             {"description": "A small room with a bench and some artwork. There is a door to the west, east, and north. The North Hallway is to the south...",
+    "Storage Room": {
+        "description": "The storage room is strangely unlocked. Head east to return to the South Hallway.",
+        "items": ["plunger"],
+        "value": 0,
+        "doors": {"east": "South Hallway"}
+    },
+
+     "Atrium": {
+         "description": "A small room with a bench and some artwork. There is a door to the west, east, and north. The North Hallway is to the south...",
               "items": ["crumpled note"],
               "value": 5,
               "doors": {"north": "Bistro", "west": "Math Room", "east": "Atrium Deck", "south": "North Hallway"}},
@@ -649,7 +745,7 @@ g_rooms = {
         direction''',
         "items": [],
         "value": 50,
-        "doors": {"west": "Picnic Tables", "South": "Greenhouse"}
+        "doors": {"west": "Picnic Tables", "south": "Greenhouse"}
     },
 
          "Greenhouse":
@@ -663,14 +759,14 @@ g_rooms = {
               "value": 5,
               "doors": {"north": "Parking Area", "south": "Picnic Tables", "west": "Atrium Deck"}},
          "Mrs. Simpton's Room":
-             {"description": "A single windowed room with mysterious symbols on the walls. It smells strongly of body oder. the exit is to the east... better hurry! it smells!",
-              "items": [],
+             {"description": "A single windowed room with mysterious symbols on the walls. It smells strongly of body oder. The exit is to the east... better hurry! It smells!",
+              "items": ["deoderant"],
               "value": 10,
               "preposition": "",
               "doors": {"east": "South Area"}},
          "Science Room":
              {"description": "A rather large room full of desks, chairs, and science tools. There are doors to the north, east, and south.",
-              "items": ["vial of blood", "pop tart"],
+              "items": ["pop tart"],
               "value": 10,
               "doors": {"north": "Science Bathroom", "east": "Secret Hallway", "south": "Parking Area"}},
          "Mr. Elkin's Car":
@@ -708,7 +804,7 @@ g_rooms = {
              {"description": "Completely dark.... the clanking sounds of folded chairs can be hears. the exit is to the south.",
               "items": [],
               "value": 10,
-              "doors": {"south": "Humanities Hall"}},
+              "doors": {"west": "Humanities Hall"}},
          "Parking Area":
              {"description": "There are a bunch of parked cars around you. To the north you see a door labeled 'science'. to the east, you see a set of stairs. To the south you see a group of teachers talking.",
               "items": [],
@@ -818,9 +914,13 @@ in the name "Peggy???" in red ink on several of the graded assignments.''',
         "takeable": True
     },
 
+    "plunger": {
+        "description": "You are holding a typical toilet plunger with a 3ft long wooden handle.",
+        "takeable": True
+    },
+
     "key": {
-        "description":
-'''small, nondescript key''',
+        "description": "It's a small, nondescript key",
         "takeable": True
     },
 
@@ -831,17 +931,8 @@ in the name "Peggy???" in red ink on several of the graded assignments.''',
         "takeable": True
     },
 
-    "physics binder": {
-        "description":
-'''notebook containing all kinds of complex diagrams, equations, assignments (many with very low grades),
- etc. in a completely random order. None of the pages have any students names on them, but Mr. Schneider
- has obviously written in the name "Peggy???" in red ink on several of the graded assignments.''',
-        "takeable": True
-    },
-
     "donut": {
-        "description":
-'''a chocolate donut with multicolored sprinkles''',
+        "description": "a chocolate donut with multicolored sprinkles",
         "takeable": True
     },
 
@@ -870,8 +961,8 @@ to another by nongenetic means, especially imitation.''',
         "takeable": False
     },
 
-    "vial of blood": {
-        "description": "a vial of rabbit blood",
+    "deoderant": {
+        "description": "A basket of potpourri with a lovely lavdendar scent",
         "takeable": True
     },
 
