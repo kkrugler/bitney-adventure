@@ -5,6 +5,9 @@ import cgi
 import string
 import bag_engine
 
+# TODO - use Javascript on page to check for new msgs regularly. So then when a person
+# enters the room, you'd get a message.
+
 class MyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     global g_players
 
